@@ -65,6 +65,41 @@ def calculate_aep(df: pd.DataFrame, power_curve: dict, col: str = "Wind_Speed_50
     aep_mwh = mean_power_kw * 8760 / 1000.0
     return aep_mwh
 
+def add_turbine_to_db(turbine_name: str, power_curve_df: pd.DataFrame) -> bool:
+    required_cols = {"Wind_Speed_ms", "Power_kW"}
+    if not required_cols.issubset(power_curve_df.columns):
+        print(f"Error: DataFrame must contain columns {required_cols}.")
+        return False
+
+    rows = [
+        (turbine_name, int(row["Wind_Speed_ms"]), float(row["Power_kW"]))
+        for _, row in power_curve_df.iterrows()
+    ]
+
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.executemany(
+                "INSERT INTO power_curves (turbine_name, wind_speed_ms, power_kw) "
+                "VALUES (?, ?, ?)",
+                rows,
+            )
+            conn.commit()
+        return True
+
+    except sqlite3.IntegrityError as e:
+        # Triggered by the composite PK (turbine_name, wind_speed_ms) — duplicate insert.
+        print(f"Integrity error adding turbine '{turbine_name}': {e}. "
+              f"A turbine with this name and wind speeds may already exist.")
+        return False
+
+    except sqlite3.DatabaseError as e:
+        print(f"Database error adding turbine '{turbine_name}': {e}")
+        return False
+
+    except Exception as e:
+        print(f"Unexpected error adding turbine '{turbine_name}': {e}")
+        return False
+
 # Import your working fetcher script!
 import data_fetcher
 

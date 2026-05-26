@@ -16,6 +16,16 @@ from wind_math import (
     get_all_projects,
 )
 
+from wind_math import (
+    fit_weibull,
+    calculate_aep,
+    get_all_turbine_names,
+    get_power_curve,
+    save_project,
+    get_all_projects,
+    add_turbine_to_db,   # new
+)
+
 st.set_page_config(page_title="Wind Resource Assessment", layout="wide")
 st.title("Салхины эрчим хүчний нөөцийн үнэлгээ")
 
@@ -183,3 +193,37 @@ if projects_df.empty:
     st.caption("No saved projects yet.")
 else:
     st.dataframe(projects_df, use_container_width=True, hide_index=True)
+
+    with st.expander("⚙️ Admin: Add Turbine"):
+        new_turbine_name = st.text_input("New Turbine Name", key="new_turbine_name")
+
+        blank_curve = pd.DataFrame({
+            "Wind_Speed_ms": list(range(0, 26)),
+            "Power_kW": [0.0] * 26,
+        })
+        edited_curve = st.data_editor(
+            blank_curve,
+            key="new_turbine_editor",
+            num_rows="fixed",
+            use_container_width=True,
+            column_config={
+                "Wind_Speed_ms": st.column_config.NumberColumn("Wind Speed (m/s)", disabled=True),
+                "Power_kW": st.column_config.NumberColumn("Power (kW)", min_value=0, step=10),
+            },
+        )
+
+        if st.button("Save to Database"):
+            name = new_turbine_name.strip()
+            if not name:
+                st.warning("Please enter a turbine name.")
+            elif name in get_all_turbine_names():
+                st.error(f"A turbine named '{name}' already exists.")
+            elif edited_curve["Power_kW"].sum() == 0:
+                st.warning("Power curve is all zeros — please enter power values before saving.")
+            else:
+                ok = add_turbine_to_db(name, edited_curve)
+                if ok:
+                    st.success(f"Turbine '{name}' saved to database.")
+                    st.rerun()  # refresh selectbox so the new turbine appears
+                else:
+                    st.error("Failed to save turbine. Check the terminal for details.")

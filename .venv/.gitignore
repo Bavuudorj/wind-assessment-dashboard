@@ -4,7 +4,7 @@ venv/
 env/
 
 # Local database
-turbines.db
+
 *.db-journal
 
 # Python cache / bytecode
